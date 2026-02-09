@@ -1,0 +1,40 @@
+{
+  "columns": [
+    {
+      "name": "Dataset Name",
+      "db_field": "dataset_name",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "Phase",
+      "db_field": "phase",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "Tokens",
+      "db_field": "tokens",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "Parent Dataset",
+      "db_field": "parent_dataset",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "Status",
+      "db_field": "status",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "Description",
+      "db_field": "description",
+      "type": "text",
+      "required": false
+    }
+  ]
+}

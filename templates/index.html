@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dataset Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .diff-added { background-color: #d4edda; }
+        .diff-modified { background-color: #fff3cd; }
+        .diff-deleted { background-color: #f8d7da; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">Dataset Tracker</h1>
+            <p class="text-gray-600 mb-6">Company-wide dataset management with version control</p>
+
+            <div id="main-view" class="space-y-6">
+                <div class="flex gap-4">
+                    <button onclick="downloadCSV()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        Download CSV
+                    </button>
+                    <label class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 cursor-pointer flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                        Upload CSV
+                        <input type="file" id="csv-upload" accept=".csv" class="hidden" onchange="handleUpload(event)">
+                    </label>
+                    <button onclick="checkPending()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        View Pending Changes
+                    </button>
+                </div>
+
+                <div>
+                    <h2 class="text-xl font-semibold mb-4">Current Datasets</h2>
+                    <div class="overflow-x-auto">
+                        <table id="datasets-table" class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dataset Name</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phase</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tokens</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parent</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Updated</th>
+                                </tr>
+                            </thead>
+                            <tbody id="datasets-body" class="bg-white divide-y divide-gray-200">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="diff-view" class="hidden space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-semibold">Review Changes</h2>
+                    <button onclick="showMainView()" class="text-gray-600 hover:text-gray-800">
+                        ← Back to Main
+                    </button>
+                </div>
+
+                <div id="diff-summary" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                </div>
+
+                <div id="diff-content" class="space-y-6">
+                </div>
+
+                <div class="flex gap-4">
+                    <button onclick="approveChanges()" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold">
+                        ✓ Approve All Changes
+                    </button>
+                    <button onclick="rejectChanges()" class="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">
+                        ✗ Reject All Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentDiff = null;
+        let pendingChangeIds = [];
+
+        async function loadDatasets() {
+            try {
+                const response = await fetch('/api/datasets');
+                const datasets = await response.json();
+                
+                const tbody = document.getElementById('datasets-body');
+                tbody.innerHTML = datasets.map(d => `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${d.dataset_name}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${d.phase || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${d.tokens || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${d.parent_dataset || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${d.status || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${d.updated_at ? new Date(d.updated_at).toLocaleDateString() : '-'}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading datasets:', error);
+            }
+        }
+
+        function downloadCSV() {
+            window.location.href = '/api/download';
+        }
+
+        async function handleUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('submitted_by', prompt('Enter your name:') || 'Anonymous');
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (result.error) {
+                    alert('Error: ' + result.error);
+                    return;
+                }
+
+                currentDiff = result.diff;
+                showDiffView(result);
+            } catch (error) {
+                alert('Error uploading file: ' + error.message);
+            }
+
+            event.target.value = '';
+        }
+
+        async function checkPending() {
+            try {
+                const response = await fetch('/api/pending');
+                const diff = await response.json();
+                
+                currentDiff = diff;
+                showDiffView({ diff, summary: {
+                    added: diff.added.length,
+                    modified: diff.modified.length,
+                    deleted: diff.deleted.length
+                }});
+            } catch (error) {
+                alert('Error loading pending changes: ' + error.message);
+            }
+        }
+
+        function showDiffView(result) {
+            document.getElementById('main-view').classList.add('hidden');
+            document.getElementById('diff-view').classList.remove('hidden');
+
+            const summaryDiv = document.getElementById('diff-summary');
+            summaryDiv.innerHTML = `
+                <h3 class="font-semibold mb-2">Summary</h3>
+                <p><span class="text-green-600 font-bold">${result.summary.added}</span> additions, 
+                   <span class="text-yellow-600 font-bold">${result.summary.modified}</span> modifications, 
+                   <span class="text-red-600 font-bold">${result.summary.deleted}</span> deletions</p>
+            `;
+
+            const contentDiv = document.getElementById('diff-content');
+            contentDiv.innerHTML = '';
+
+            pendingChangeIds = [];
+
+            // Added datasets
+            if (result.diff.added.length > 0) {
+                const addedSection = document.createElement('div');
+                addedSection.innerHTML = `
+                    <h3 class="text-lg font-semibold text-green-700 mb-3">✓ Additions (${result.diff.added.length})</h3>
+                    <div class="space-y-2">
+                        ${result.diff.added.map(item => {
+                            if (item.id) pendingChangeIds.push(item.id);
+                            return `
+                            <div class="diff-added border border-green-300 rounded p-4">
+                                <h4 class="font-semibold">${item.dataset_name}</h4>
+                                <div class="grid grid-cols-2 gap-2 mt-2 text-sm">
+                                    ${Object.entries(item.data || item).filter(([k]) => k !== 'dataset_name' && k !== 'id').map(([key, value]) => `
+                                        <div><span class="text-gray-600">${key}:</span> ${value}</div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `}).join('')}
+                    </div>
+                `;
+                contentDiv.appendChild(addedSection);
+            }
+
+            // Modified datasets
+            if (result.diff.modified.length > 0) {
+                const modifiedSection = document.createElement('div');
+                modifiedSection.innerHTML = `
+                    <h3 class="text-lg font-semibold text-yellow-700 mb-3">⚠ Modifications (${result.diff.modified.length})</h3>
+                    <div class="space-y-2">
+                        ${result.diff.modified.map(item => {
+                            if (item.id) pendingChangeIds.push(item.id);
+                            return `
+                            <div class="diff-modified border border-yellow-300 rounded p-4">
+                                <h4 class="font-semibold mb-2">${item.dataset_name}</h4>
+                                ${Object.keys(item.new || {}).map(key => {
+                                    if (key === 'dataset_name') return '';
+                                    const oldVal = (item.old || {})[key] || '-';
+                                    const newVal = (item.new || {})[key] || '-';
+                                    if (oldVal === newVal) return '';
+                                    return `
+                                        <div class="grid grid-cols-2 gap-4 text-sm mb-2">
+                                            <div>
+                                                <span class="text-gray-600">${key}:</span>
+                                                <span class="line-through text-red-600">${oldVal}</span>
+                                            </div>
+                                            <div>
+                                                <span class="text-gray-600">${key}:</span>
+                                                <span class="text-green-600 font-semibold">${newVal}</span>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        `}).join('')}
+                    </div>
+                `;
+                contentDiv.appendChild(modifiedSection);
+            }
+
+            // Deleted datasets
+            if (result.diff.deleted.length > 0) {
+                const deletedSection = document.createElement('div');
+                deletedSection.innerHTML = `
+                    <h3 class="text-lg font-semibold text-red-700 mb-3">✗ Deletions (${result.diff.deleted.length})</h3>
+                    <div class="space-y-2">
+                        ${result.diff.deleted.map(item => {
+                            if (item.id) pendingChangeIds.push(item.id);
+                            return `
+                            <div class="diff-deleted border border-red-300 rounded p-4">
+                                <h4 class="font-semibold">${item.dataset_name}</h4>
+                                <p class="text-sm text-gray-600 mt-1">This dataset will be removed</p>
+                            </div>
+                        `}).join('')}
+                    </div>
+                `;
+                contentDiv.appendChild(deletedSection);
+            }
+        }
+
+        function showMainView() {
+            document.getElementById('diff-view').classList.add('hidden');
+            document.getElementById('main-view').classList.remove('hidden');
+            loadDatasets();
+        }
+
+        async function approveChanges() {
+            if (!confirm('Are you sure you want to approve all these changes?')) return;
+
+            const approvedBy = prompt('Enter your name:') || 'Admin';
+
+            try {
+                const response = await fetch('/api/approve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        change_ids: pendingChangeIds,
+                        approved_by: approvedBy
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.error) {
+                    alert('Error: ' + result.error);
+                    return;
+                }
+
+                alert('Changes approved successfully!');
+                showMainView();
+            } catch (error) {
+                alert('Error approving changes: ' + error.message);
+            }
+        }
+
+        async function rejectChanges() {
+            if (!confirm('Are you sure you want to reject all these changes?')) return;
+
+            try {
+                const response = await fetch('/api/reject', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ change_ids: pendingChangeIds })
+                });
+
+                const result = await response.json();
+                
+                if (result.error) {
+                    alert('Error: ' + result.error);
+                    return;
+                }
+
+                alert('Changes rejected successfully!');
+                showMainView();
+            } catch (error) {
+                alert('Error rejecting changes: ' + error.message);
+            }
+        }
+
+        // Load datasets on page load
+        loadDatasets();
+    </script>
+</body>
+</html>

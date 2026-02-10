@@ -46,6 +46,7 @@
                         <table id="datasets-table" class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dataset ID</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Name</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Domain</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Token Count</th>
@@ -111,6 +112,7 @@
                 const tbody = document.getElementById('datasets-body');
                 tbody.innerHTML = datasets.map(d => `
                     <tr>
+                        <td class="px-6 py-4 text-sm font-mono text-gray-900">${d.dataset_id || '-'}</td>
                         <td class="px-6 py-4 text-sm font-medium text-gray-900">${d.data_name_split || '-'}</td>
                         <td class="px-6 py-4 text-sm text-gray-500">${d.domain || '-'}</td>
                         <td class="px-6 py-4 text-sm text-gray-500">${formatNumber(d.gemma3_token_cnt)}</td>
@@ -135,9 +137,19 @@
             const file = event.target.files[0];
             if (!file) return;
 
+            // Ask user what they want to do
+            const action = confirm(
+                'Click OK to ADD to existing data\n' +
+                'Click Cancel to REPLACE entire database'
+            );
+
+            const uploadMode = action ? 'add' : 'replace';
+            const submittedBy = prompt('Enter your name:') || 'Anonymous';
+
             const formData = new FormData();
             formData.append('file', file);
-            formData.append('submitted_by', prompt('Enter your name:') || 'Anonymous');
+            formData.append('submitted_by', submittedBy);
+            formData.append('upload_mode', uploadMode);
 
             try {
                 const response = await fetch('/api/upload', {

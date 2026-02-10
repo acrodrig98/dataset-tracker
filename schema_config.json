@@ -1,6 +1,12 @@
 {
   "columns": [
     {
+      "name": "Dataset ID",
+      "db_field": "dataset_id",
+      "type": "string",
+      "required": true
+    },
+    {
       "name": "Data Name Split",
       "db_field": "data_name_split",
       "type": "string",

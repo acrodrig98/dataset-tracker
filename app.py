@@ -10,8 +10,7 @@ import os
 app = Flask(__name__)
 
 # Use PostgreSQL on Render, SQLite locally
-database_url = os.getenv('DATABASE_URL', 'sqlite:///dataset_tracker.db')
-# Render uses postgres:// but SQLAlchemy needs postgresql://
+database_url = os.getenv('DATABASE_URL', 'postgresql://antoniorodriguez@localhost:5432/dataset_tracking')
 if database_url.startswith('postgres://'):
     database_url = database_url.replace('postgres://', 'postgresql://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
@@ -26,14 +25,14 @@ with open('schema_config.json', 'r') as f:
 class Dataset(db.Model):
     __tablename__ = 'datasets'
     id = db.Column(db.Integer, primary_key=True)
-    dataset_name = db.Column(db.String(255), unique=True, nullable=False)
-    phase = db.Column(db.String(100))
-    tokens = db.Column(db.String(50))
-    parent_dataset = db.Column(db.String(255))
-    status = db.Column(db.String(50))
-    description = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    data_name_split = db.Column(db.Text, nullable=False)
+    domain = db.Column(db.Text)
+    gemma3_token_cnt = db.Column(db.Float)
+    epochs = db.Column(db.Float)
+    desired_token_cnt = db.Column(db.Float)
+    training_stage = db.Column(db.Text, nullable=False)  # Changed from phase
+    link = db.Column(db.Text)
+    ibm_datapath = db.Column(db.Text)
 
 class PendingChange(db.Model):
     __tablename__ = 'pending_changes'
@@ -62,17 +61,27 @@ def index():
 
 @app.route('/api/datasets')
 def get_datasets():
-    datasets = Dataset.query.all()
-    return jsonify([{
-        'id': d.id,
-        'dataset_name': d.dataset_name,
-        'phase': d.phase,
-        'tokens': d.tokens,
-        'parent_dataset': d.parent_dataset,
-        'status': d.status,
-        'description': d.description,
-        'updated_at': d.updated_at.isoformat() if d.updated_at else None
-    } for d in datasets])
+    try:
+        datasets = Dataset.query.all()
+        result = []
+        for d in datasets:
+            result.append({
+                'id': d.id,
+                'data_name_split': d.data_name_split,
+                'domain': d.domain,
+                'gemma3_token_cnt': d.gemma3_token_cnt,
+                'epochs': d.epochs,
+                'desired_token_cnt': d.desired_token_cnt,
+                'training_stage': d.training_stage,
+                'link': d.link,
+                'ibm_datapath': d.ibm_datapath
+            })
+        return jsonify(result)
+    except Exception as e:
+        print(f"ERROR in /api/datasets: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/download')
 def download_csv():
@@ -362,4 +371,4 @@ def get_audit_log():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True, port=5000, host='0.0.0.0')
+    app.run(debug=True, port=8000, host='0.0.0.0')

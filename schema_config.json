@@ -1,39 +1,51 @@
 {
   "columns": [
     {
-      "name": "Dataset Name",
-      "db_field": "dataset_name",
+      "name": "Data Name Split",
+      "db_field": "data_name_split",
       "type": "string",
       "required": true
     },
     {
-      "name": "Phase",
-      "db_field": "phase",
+      "name": "Domain",
+      "db_field": "domain",
       "type": "string",
       "required": false
     },
     {
-      "name": "Tokens",
-      "db_field": "tokens",
+      "name": "Gemma3 Token Count",
+      "db_field": "gemma3_token_cnt",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "Epochs",
+      "db_field": "epochs",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "Desired Token Count",
+      "db_field": "desired_token_cnt",
+      "type": "number",
+      "required": false
+    },
+    {
+      "name": "Training Stage",
+      "db_field": "training_stage",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "Link",
+      "db_field": "link",
       "type": "string",
       "required": false
     },
     {
-      "name": "Parent Dataset",
-      "db_field": "parent_dataset",
+      "name": "IBM Datapath",
+      "db_field": "ibm_datapath",
       "type": "string",
-      "required": false
-    },
-    {
-      "name": "Status",
-      "db_field": "status",
-      "type": "string",
-      "required": false
-    },
-    {
-      "name": "Description",
-      "db_field": "description",
-      "type": "text",
       "required": false
     }
   ]

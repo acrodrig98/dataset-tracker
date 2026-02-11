@@ -8,6 +8,7 @@ A collaborative dataset management system with approval workflows and version co
 - [Uploading Data](#uploading-data)
 - [Viewing Pending Changes](#viewing-pending-changes)
 - [Approving Changes (Admin Only)](#approving-changes-admin-only)
+- [Data Statistics](#data-statistics)
 - [CSV Format](#csv-format)
 - [Troubleshooting](#troubleshooting)
 
@@ -22,6 +23,7 @@ The Dataset Tracker allows teams to collaboratively manage dataset metadata thro
 - 📤 **Upload** new data or modifications via CSV
 - 👁️ **Review** pending changes before they go live
 - ✅ **Approve/Reject** changes (admin only)
+- 📊 **Data Statistics** - Interactive charts and visualizations
 - 📜 **Audit log** of all changes
 
 ---
@@ -112,6 +114,61 @@ Only designated administrators can approve or reject changes. If you try to appr
 
 ---
 
+## Data Statistics
+
+### Viewing Visualizations
+
+The Data Statistics tab provides interactive charts and visualizations showing:
+- Domain distribution across different training phases
+- Token count distributions
+- Dataset composition analysis
+
+**How to Access:**
+
+1. Click the **"Data Statistics"** button (purple button with chart icon) on the main page
+2. Browse through charts organized by training phase:
+   - BMoE-Phase1, BMoE-Phase2
+   - SMoE-Phase1, SMoE-Phase2
+   - SMoE-Midtrain, SMoE-SFT
+   - And more...
+
+### Understanding the Charts
+
+**Pie Charts:**
+- Show the distribution of datasets across different domains
+- Larger slices indicate domains with more datasets or higher token counts
+- "Other" category groups smaller domains for clarity
+
+**Histograms:**
+- Display token count distributions within each domain
+- Help identify patterns and outliers in dataset sizes
+- Include mean and median values for reference
+
+### For Administrators: Uploading Charts
+
+If you have access to the Jupyter notebook and want to update the visualizations:
+
+**Step 1: Generate Charts**
+```bash
+jupyter notebook utils/load_sheets.ipynb
+# Run all cells to generate PNG charts
+```
+
+**Step 2: Upload to Web App**
+```bash
+cd utils
+python upload_charts.py
+```
+
+**Step 3: Verify**
+- Refresh the Data Statistics page
+- New charts will appear automatically
+- Old charts with the same filename are updated
+
+**Note:** Chart uploads require the web application to be running and accessible at `http://localhost:4000`.
+
+---
+
 ## CSV Format
 
 ### Required Columns
@@ -189,6 +246,38 @@ DS-000001,my-dataset,CRAWL-Gen,1000000000,1.0,1000000000,Phase1,https://example.
 - Use the downloaded CSV as a template
 - Ensure all required columns are present
 - Verify data types match the expected format
+
+### No Charts in Data Statistics
+
+**Cause:** "No charts uploaded yet" appears in the Data Statistics tab.
+
+**Solution:**
+- Charts must be generated and uploaded separately
+- Follow the chart upload process in [Data Statistics](#data-statistics)
+- Contact your administrator to upload visualizations
+
+### Chart Upload Script Fails
+
+**Possible causes:**
+- Web application is not running
+- Wrong port or URL in upload_charts.py configuration
+- No PNG files matching the pattern in utils directory
+
+**Solution:**
+- Verify the web app is running: `python app.py`
+- Check WEBAPP_URL in upload_charts.py matches your app's URL
+- Ensure you've generated charts with the Jupyter notebook first
+- Check that PNG files exist in the utils directory
+
+### Charts Not Appearing After Upload
+
+**Cause:** Charts were uploaded but don't show in the Data Statistics tab.
+
+**Solution:**
+- Refresh the browser page
+- Check the Flask console for error messages
+- Verify the database connection is working
+- Check that the `charts` table was created properly
 
 ---
 

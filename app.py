@@ -61,6 +61,16 @@ class AuditLog(db.Model):
     changed_at = db.Column(db.DateTime, default=datetime.utcnow)
     changes = db.Column(db.JSON)
 
+class Chart(db.Model):
+    __tablename__ = 'charts'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    chart_type = db.Column(db.String(100))  # e.g., 'pie', 'histogram'
+    phase = db.Column(db.String(100))  # e.g., 'BMoE-Phase1'
+    filename = db.Column(db.String(255), nullable=False, unique=True)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    uploaded_by = db.Column(db.String(100))
+
 # Routes
 @app.route('/')
 def index():
@@ -427,6 +437,89 @@ def get_config():
         'admin_user': ADMIN_USER,
         'message': f'Only {ADMIN_USER} can approve or reject pending changes'
     })
+
+@app.route('/api/charts', methods=['GET'])
+def get_charts():
+    """Get all uploaded charts"""
+    charts = Chart.query.order_by(Chart.uploaded_at.desc()).all()
+    return jsonify([{
+        'id': c.id,
+        'name': c.name,
+        'chart_type': c.chart_type,
+        'phase': c.phase,
+        'filename': c.filename,
+        'uploaded_at': c.uploaded_at.isoformat(),
+        'uploaded_by': c.uploaded_by
+    } for c in charts])
+
+@app.route('/api/charts/upload', methods=['POST'])
+def upload_chart():
+    """Upload a chart image"""
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+
+    file = request.files['file']
+    chart_name = request.form.get('name', '')
+    chart_type = request.form.get('chart_type', 'unknown')
+    phase = request.form.get('phase', '')
+    uploaded_by = request.form.get('uploaded_by', 'Unknown')
+
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+
+    # Create static/charts directory if it doesn't exist
+    charts_dir = os.path.join(app.root_path, 'static', 'charts')
+    os.makedirs(charts_dir, exist_ok=True)
+
+    # Save the file
+    filename = file.filename
+    filepath = os.path.join(charts_dir, filename)
+    file.save(filepath)
+
+    # Check if chart already exists and update it
+    existing_chart = Chart.query.filter_by(filename=filename).first()
+    if existing_chart:
+        existing_chart.name = chart_name
+        existing_chart.chart_type = chart_type
+        existing_chart.phase = phase
+        existing_chart.uploaded_at = datetime.utcnow()
+        existing_chart.uploaded_by = uploaded_by
+    else:
+        # Create new chart record
+        chart = Chart(
+            name=chart_name,
+            chart_type=chart_type,
+            phase=phase,
+            filename=filename,
+            uploaded_by=uploaded_by
+        )
+        db.session.add(chart)
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'filename': filename,
+        'message': 'Chart uploaded successfully'
+    })
+
+@app.route('/api/charts/<int:chart_id>', methods=['DELETE'])
+def delete_chart(chart_id):
+    """Delete a chart"""
+    chart = Chart.query.get(chart_id)
+    if not chart:
+        return jsonify({'error': 'Chart not found'}), 404
+
+    # Delete the file
+    filepath = os.path.join(app.root_path, 'static', 'charts', chart.filename)
+    if os.path.exists(filepath):
+        os.remove(filepath)
+
+    # Delete the database record
+    db.session.delete(chart)
+    db.session.commit()
+
+    return jsonify({'success': True})
 
 if __name__ == '__main__':
     with app.app_context():

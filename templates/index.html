@@ -38,6 +38,12 @@
                         </svg>
                         View Pending Changes
                     </button>
+                    <button onclick="showStatistics()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        Data Statistics
+                    </button>
                 </div>
 
                 <div>
@@ -84,6 +90,30 @@
                     <button onclick="rejectChanges()" class="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">
                         ✗ Reject All Changes
                     </button>
+                </div>
+            </div>
+
+            <div id="statistics-view" class="hidden space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-semibold">Data Statistics</h2>
+                    <button onclick="showMainView()" class="text-gray-600 hover:text-gray-800">
+                        ← Back to Main
+                    </button>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p class="text-sm text-gray-700">
+                        Visualizations showing dataset distribution by domain and training phase.
+                        Upload charts from your Jupyter notebook to display them here.
+                    </p>
+                </div>
+
+                <div id="charts-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Charts will be loaded here -->
+                </div>
+
+                <div class="text-center text-gray-500" id="no-charts-message">
+                    <p>No charts uploaded yet. Run the Jupyter notebook to generate and upload visualizations.</p>
                 </div>
             </div>
         </div>
@@ -289,8 +319,73 @@
 
         function showMainView() {
             document.getElementById('diff-view').classList.add('hidden');
+            document.getElementById('statistics-view').classList.add('hidden');
             document.getElementById('main-view').classList.remove('hidden');
             loadDatasets();
+        }
+
+        async function showStatistics() {
+            document.getElementById('main-view').classList.add('hidden');
+            document.getElementById('diff-view').classList.add('hidden');
+            document.getElementById('statistics-view').classList.remove('hidden');
+            await loadCharts();
+        }
+
+        async function loadCharts() {
+            try {
+                const response = await fetch('/api/charts');
+                const charts = await response.json();
+
+                const container = document.getElementById('charts-container');
+                const noChartsMsg = document.getElementById('no-charts-message');
+
+                if (charts.length === 0) {
+                    container.innerHTML = '';
+                    noChartsMsg.classList.remove('hidden');
+                    return;
+                }
+
+                noChartsMsg.classList.add('hidden');
+
+                // Group charts by phase
+                const chartsByPhase = {};
+                charts.forEach(chart => {
+                    const phase = chart.phase || 'General';
+                    if (!chartsByPhase[phase]) {
+                        chartsByPhase[phase] = [];
+                    }
+                    chartsByPhase[phase].push(chart);
+                });
+
+                container.innerHTML = '';
+
+                // Display charts grouped by phase
+                Object.keys(chartsByPhase).sort().forEach(phase => {
+                    const phaseSection = document.createElement('div');
+                    phaseSection.className = 'col-span-1 md:col-span-2';
+                    phaseSection.innerHTML = `
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">${phase}</h3>
+                    `;
+                    container.appendChild(phaseSection);
+
+                    chartsByPhase[phase].forEach(chart => {
+                        const chartDiv = document.createElement('div');
+                        chartDiv.className = 'bg-white rounded-lg shadow p-4';
+                        chartDiv.innerHTML = `
+                            <h4 class="font-medium text-gray-900 mb-2">${chart.name || chart.filename}</h4>
+                            <img src="/static/charts/${chart.filename}" alt="${chart.name}" class="w-full rounded">
+                            <p class="text-xs text-gray-500 mt-2">
+                                Uploaded ${new Date(chart.uploaded_at).toLocaleDateString()} by ${chart.uploaded_by}
+                            </p>
+                        `;
+                        container.appendChild(chartDiv);
+                    });
+                });
+            } catch (error) {
+                console.error('Error loading charts:', error);
+                document.getElementById('no-charts-message').innerHTML =
+                    '<p class="text-red-600">Error loading charts. Please try again.</p>';
+            }
         }
 
         async function approveChanges() {

@@ -8,6 +8,7 @@ A company-wide dataset management system with version control, CSV import/export
 - 📤 **CSV Upload**: Upload modified CSVs with automatic diff detection
 - 🔍 **Diff Review**: Visual comparison of additions, modifications, and deletions
 - ✅ **Approval Workflow**: Admin approval required before changes are committed
+- 📊 **Data Statistics**: Interactive visualizations with pie charts and histograms by training phase
 - 📝 **Audit Log**: Complete history of all changes with timestamps
 - ⚙️ **Easy Schema Updates**: Simple JSON configuration for adding/modifying columns
 
@@ -64,20 +65,38 @@ Visit `http://localhost:8000` (or port 4000 if configured differently)
 2. **Upload** - Click "Upload CSV" and select your modified file
 3. **Review** - Preview shows additions, modifications, and deletions
 4. **Approve** - Admin approves changes to apply them to the database
+5. **Statistics** - View interactive charts showing dataset distribution by domain and phase
 
 ### Admin Configuration
 
 Only the user specified in `ADMIN_USER` environment variable can approve or reject pending changes. This ensures controlled access to database modifications while allowing anyone to propose changes.
 
+### Data Statistics & Visualizations
+
+The Data Statistics tab displays interactive charts showing dataset distribution across domains and training phases.
+
+**Uploading Charts:**
+
+1. Generate charts using the Jupyter notebook in `utils/load_sheets.ipynb`
+2. Upload them using the Python script:
+   ```bash
+   cd utils
+   python upload_charts.py
+   ```
+3. View them by clicking "Data Statistics" on the website
+
+See [utils/README.md](utils/README.md) for detailed instructions.
+
 ## Architecture
 
 ### Database Schema
 
-The system uses three main tables:
+The system uses four main tables:
 
 - **`datasets`** - Main table storing approved dataset records
 - **`pending_changes`** - Temporary storage for proposed changes (add/modify/delete)
 - **`audit_log`** - Historical record of all approved changes
+- **`charts`** - Metadata for uploaded visualization charts
 
 ### Workflow
 

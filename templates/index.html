@@ -296,7 +296,7 @@
         async function approveChanges() {
             if (!confirm('Are you sure you want to approve all these changes?')) return;
 
-            const approvedBy = prompt('Enter your name:') || 'Admin';
+            const approvedBy = prompt('Enter your name to approve:') || 'Admin';
 
             try {
                 const response = await fetch('/api/approve', {
@@ -325,15 +325,20 @@
         async function rejectChanges() {
             if (!confirm('Are you sure you want to reject all these changes?')) return;
 
+            const rejectedBy = prompt('Enter your name to reject:') || 'Admin';
+
             try {
                 const response = await fetch('/api/reject', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ change_ids: pendingChangeIds })
+                    body: JSON.stringify({
+                        change_ids: pendingChangeIds,
+                        rejected_by: rejectedBy
+                    })
                 });
 
                 const result = await response.json();
-                
+
                 if (result.error) {
                     alert('Error: ' + result.error);
                     return;

@@ -18,6 +18,9 @@ app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 
+# Admin user who can approve/reject changes
+ADMIN_USER = os.getenv('ADMIN_USER', 'antoniorodriguez')  # Set via environment variable or default
+
 db = SQLAlchemy(app)
 
 # Load schema configuration
@@ -122,7 +125,11 @@ def upload_csv():
     
     try:
         df = pd.read_csv(file)
-        
+
+        # Debug: Log the columns found in the CSV
+        print(f"CSV columns found: {list(df.columns)}")
+        print(f"CSV has {len(df)} rows")
+
         # Get current datasets by dataset_id (the custom ID like DS-000001)
         current_datasets_by_id = {d.dataset_id: d for d in Dataset.query.all()}
         
@@ -139,30 +146,50 @@ def upload_csv():
         uploaded_ids = set()
         
         for _, row in df.iterrows():
-            # Get or generate dataset_id
-            dataset_id = row.get('Dataset ID', row.get('dataset_id'))
-            
-            if pd.isna(dataset_id) or not dataset_id:
+            # Get or generate dataset_id - try both display name and db field name
+            dataset_id = None
+            for possible_name in ['Dataset ID', 'dataset_id']:
+                if possible_name in row and not pd.isna(row[possible_name]):
+                    dataset_id = row[possible_name]
+                    break
+
+            if not dataset_id:
                 dataset_id = f'DS-{str(next_id_counter).zfill(6)}'
                 next_id_counter += 1
-            
-            dataset_name = row.get('Data Name Split', row.get('data_name_split'))
-            if pd.isna(dataset_name):
+
+            # Get dataset name - try both display name and db field name
+            dataset_name = None
+            for possible_name in ['Data Name Split', 'data_name_split']:
+                if possible_name in row and not pd.isna(row[possible_name]):
+                    dataset_name = row[possible_name]
+                    break
+
+            if not dataset_name:
                 continue
-                
+
             uploaded_ids.add(dataset_id)
-            
+
             new_data = {}
             for col in SCHEMA_CONFIG['columns']:
                 csv_name = col['name']
                 db_field = col['db_field']
-                
+
                 if db_field == 'dataset_id':
-                    new_data[db_field] = dataset_id
+                    new_data[db_field] = str(dataset_id)
                 else:
-                    value = row.get(csv_name, '')
+                    # Try to get value using both display name and db field name
+                    value = None
+                    if csv_name in row:
+                        value = row[csv_name]
+                    elif db_field in row:
+                        value = row[db_field]
+
                     new_data[db_field] = '' if pd.isna(value) else str(value)
-            
+
+            # Debug: Log first row to verify data is being read correctly
+            if len(diff['added']) == 0 and len(diff['modified']) == 0:
+                print(f"First row data: {new_data}")
+
             if dataset_id in current_datasets_by_id:
                 old_dataset = current_datasets_by_id[dataset_id]
                 old_data = {
@@ -227,7 +254,10 @@ def upload_csv():
             db.session.add(change)
         
         db.session.commit()
-        
+
+        # Debug: Log the summary
+        print(f"Upload summary - Added: {len(diff['added'])}, Modified: {len(diff['modified'])}, Deleted: {len(diff['deleted'])}")
+
         return jsonify({
             'success': True,
             'diff': diff,
@@ -286,7 +316,14 @@ def approve_changes():
     data = request.json
     change_ids = data.get('change_ids', [])
     approved_by = data.get('approved_by', 'Admin')
-    
+
+    # Authorization check - only the admin user can approve changes
+    if approved_by != ADMIN_USER:
+        return jsonify({
+            'error': f'Unauthorized. Only {ADMIN_USER} can approve changes.',
+            'unauthorized': True
+        }), 403
+
     try:
         for change_id in change_ids:
             change = PendingChange.query.get(change_id)
@@ -349,7 +386,15 @@ def approve_changes():
 def reject_changes():
     data = request.json
     change_ids = data.get('change_ids', [])
-    
+    rejected_by = data.get('rejected_by', data.get('approved_by', 'Admin'))  # Get user who is rejecting
+
+    # Authorization check - only the admin user can reject changes
+    if rejected_by != ADMIN_USER:
+        return jsonify({
+            'error': f'Unauthorized. Only {ADMIN_USER} can reject changes.',
+            'unauthorized': True
+        }), 403
+
     try:
         for change_id in change_ids:
             change = PendingChange.query.get(change_id)
@@ -375,7 +420,15 @@ def get_audit_log():
         'changes': log.changes
     } for log in logs])
 
+@app.route('/api/config')
+def get_config():
+    """Returns configuration info including who can approve changes"""
+    return jsonify({
+        'admin_user': ADMIN_USER,
+        'message': f'Only {ADMIN_USER} can approve or reject pending changes'
+    })
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True, port=8000, host='0.0.0.0')
+    app.run(debug=True, port=4000, host='0.0.0.0')
